@@ -76,12 +76,12 @@ def process_frame():
         # height = int(img_height * scale_percent / 100)
         # dim = (width, height)
         # img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-
-
+        
+        
         grayImg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
         # Equalize histogram for better contrast, especially in varying lighting
         grayImg = cv2.equalizeHist(grayImg)
-
+        
         faces = faceCascade.detectMultiScale(
             grayImg,
             scaleFactor=1.1, # Keep this reasonable for faces
@@ -89,10 +89,10 @@ def process_frame():
             minSize=(60, 60), # Minimum size for face detection
             flags=cv2.CASCADE_SCALE_IMAGE
         )
-
+        
         smile_detected_in_frame = False # Flag for current frame
         message = "Looking for faces..."
-
+        
         if len(faces) == 0:
             message = "No face detected."
             current_smile_streak = 0 # Reset streak if face is lost
@@ -101,15 +101,15 @@ def process_frame():
             for (x, y, w, h) in faces:
                 # Draw rectangle around face (for debugging, can be removed)
                 # cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-
+        
                 # Define ROI for mouth/smile within the face
                 # Typically, smiles are in the lower half of the face
                 roi_gray = grayImg[y + h//2 : y + h, x : x + w] # Lower half of the face
                 # roi_color = img[y + h//2 : y + h, x : x + w] # If you need color ROI
-
+        
                 if roi_gray is None or roi_gray.size == 0 or len(roi_gray.shape) != 2:
                     continue # Skip if ROI is invalid
-
+        
                 try:
                     smiles = smileCascade.detectMultiScale(
                         roi_gray,
@@ -122,25 +122,25 @@ def process_frame():
                     # Log error but don't stop process
                     print(f"Error in smile detection: {e}")
                     continue
-
+        
                 for (sx, sy, sw, sh) in smiles:
                     # Draw rectangle around smile (for debugging, can be removed)
                     # cv2.rectangle(roi_color, (sx, sy), (sx+sw, sy+sh), (0, 255, 0), 2)
-
+        
                     # Adjusted smile metrics for better accuracy
                     smile_area_ratio = (sw * sh) / (w * h) # Ratio of smile area to face area
                     aspect_ratio = sw / sh if sh != 0 else 0
-
+        
                     # Fine-tuned thresholds based on common smile characteristics
                     # A smile usually has a wider aspect ratio (horizontal)
                     # and occupies a certain proportion of the face area.
                     if aspect_ratio > 1.0 and smile_area_ratio > 0.03: # Example: aspect > 1.0 (wider than tall) and area > 3% of face
                         smile_detected_in_frame = True
                         break # Found a smile in this face, no need to check others
-
+        
                 if smile_detected_in_frame:
                     break # Found a smile in one of the faces, no need to check other faces
-
+        
         if smile_detected_in_frame:
             current_smile_streak += 1
             message = f"Smile detected! ({current_smile_streak}/{consecutive_smile_frames})"
@@ -149,7 +149,7 @@ def process_frame():
             if len(faces) > 0:
                 message = "Face detected, please smile!"
             # Message for "No face detected" is handled above.
-
+        
         alert_triggered = False
         # Save image if enough smile frames
         if current_smile_streak >= consecutive_smile_frames:
@@ -164,8 +164,8 @@ def process_frame():
             current_smile_streak = 0 # Reset streak after capturing an image
             alert_triggered = True
             message = f"Perfect smile captured! ({images_captured}/{total_images})"
-
-
+        
+        
         return jsonify({
             'images_captured': images_captured,
             'smile_detected': smile_detected_in_frame, # Send actual detection status of current frame
@@ -177,10 +177,9 @@ def process_frame():
 
     else:
         try:
-            # Analyze using DeepFace for expression
-            analysis = DeepFace.analyze(img, actions=['emotion'], enforce_detection=False)
-            dominant_emotion = analysis[0]['dominant_emotion'] if isinstance(analysis, list) else analysis['dominant_emotion']
-
+            emotion_detector = FER(mtcnn=True)
+            dominant_emotion, score = emotion_detector.top_emotion(img)
+        
             if dominant_emotion == expression:
                 if not os.path.exists(folder_path):
                     os.makedirs(folder_path, exist_ok=True)
@@ -196,7 +195,6 @@ def process_frame():
                     'smile_streak': 0,
                     'required_streak': consecutive_smile_frames
                 })
-
             else:
                 return jsonify({
                     'images_captured': images_captured,
@@ -206,10 +204,10 @@ def process_frame():
                     'smile_streak': 0,
                     'required_streak': consecutive_smile_frames
                 })
-
+        
         except Exception as e:
-            print(f"Error in DeepFace analysis: {e}")
-            return jsonify({
+            print(f"Error in FER analysis: {e}")
+                return jsonify({
                 'images_captured': images_captured,
                 'smile_detected': False,
                 'alert': False,
@@ -217,8 +215,9 @@ def process_frame():
                 'smile_streak': 0,
                 'required_streak': consecutive_smile_frames
             })
-
-
+        
+        
+        
 @app.route('/get_images')
 def get_images():
     # Ensure folder_code is defined. If page is refreshed directly to /get_images without going through /,
