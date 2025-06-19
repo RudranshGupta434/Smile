@@ -1,4 +1,4 @@
-from deepface import DeepFace
+from fer import FER
 from flask import Flask, render_template, request, jsonify, send_file
 import cv2
 import os
@@ -68,153 +68,153 @@ def process_frame():
                 'message': 'Invalid frame received.'
             })
             
-    if expression == "smile":
-        # Resize image for faster processing (optional, but recommended for live feed)
-        # img_height, img_width = img.shape[:2]
-        # scale_percent = 70 # percent of original size
-        # width = int(img_width * scale_percent / 100)
-        # height = int(img_height * scale_percent / 100)
-        # dim = (width, height)
-        # img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
-        
-        
-        grayImg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
-        # Equalize histogram for better contrast, especially in varying lighting
-        grayImg = cv2.equalizeHist(grayImg)
-        
-        faces = faceCascade.detectMultiScale(
-            grayImg,
-            scaleFactor=1.1, # Keep this reasonable for faces
-            minNeighbors=5,  # Reduced from 6, more lenient face detection
-            minSize=(60, 60), # Minimum size for face detection
-            flags=cv2.CASCADE_SCALE_IMAGE
-        )
-        
-        smile_detected_in_frame = False # Flag for current frame
-        message = "Looking for faces..."
-        
-        if len(faces) == 0:
-            message = "No face detected."
-            current_smile_streak = 0 # Reset streak if face is lost
-        else:
-            message = "Face detected, looking for smile..."
-            for (x, y, w, h) in faces:
-                # Draw rectangle around face (for debugging, can be removed)
-                # cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
-        
-                # Define ROI for mouth/smile within the face
-                # Typically, smiles are in the lower half of the face
-                roi_gray = grayImg[y + h//2 : y + h, x : x + w] # Lower half of the face
-                # roi_color = img[y + h//2 : y + h, x : x + w] # If you need color ROI
-        
-                if roi_gray is None or roi_gray.size == 0 or len(roi_gray.shape) != 2:
-                    continue # Skip if ROI is invalid
-        
-                try:
-                    smiles = smileCascade.detectMultiScale(
-                        roi_gray,
-                        scaleFactor=1.2, # Reduced from 1.8, more sensitive to smaller smiles
-                        minNeighbors=8,  # Reduced from 22, more lenient smile detection
-                        minSize=(30, 30), # Increased minSize slightly, but still reasonable
-                        flags=cv2.CASCADE_SCALE_IMAGE
-                    )
-                except Exception as e:
-                    # Log error but don't stop process
-                    print(f"Error in smile detection: {e}")
-                    continue
-        
-                for (sx, sy, sw, sh) in smiles:
-                    # Draw rectangle around smile (for debugging, can be removed)
-                    # cv2.rectangle(roi_color, (sx, sy), (sx+sw, sy+sh), (0, 255, 0), 2)
-        
-                    # Adjusted smile metrics for better accuracy
-                    smile_area_ratio = (sw * sh) / (w * h) # Ratio of smile area to face area
-                    aspect_ratio = sw / sh if sh != 0 else 0
-        
-                    # Fine-tuned thresholds based on common smile characteristics
-                    # A smile usually has a wider aspect ratio (horizontal)
-                    # and occupies a certain proportion of the face area.
-                    if aspect_ratio > 1.0 and smile_area_ratio > 0.03: # Example: aspect > 1.0 (wider than tall) and area > 3% of face
-                        smile_detected_in_frame = True
-                        break # Found a smile in this face, no need to check others
-        
-                if smile_detected_in_frame:
-                    break # Found a smile in one of the faces, no need to check other faces
-        
-        if smile_detected_in_frame:
-            current_smile_streak += 1
-            message = f"Smile detected! ({current_smile_streak}/{consecutive_smile_frames})"
-        else:
-            current_smile_streak = 0 # Reset streak if no smile is detected in current frame
-            if len(faces) > 0:
-                message = "Face detected, please smile!"
-            # Message for "No face detected" is handled above.
-        
-        alert_triggered = False
-        # Save image if enough smile frames
-        if current_smile_streak >= consecutive_smile_frames:
-            # Before saving, you might want to convert img back to PNG if you prefer lossless
-            # or reduce JPEG quality to save space if needed.
-            # For simplicity, saving as JPEG with default quality.
-            if not os.path.exists(folder_path): # Just a double check
-                os.makedirs(folder_path, exist_ok=True)
-            img_path = os.path.join(folder_path, f"image_{images_captured+1}.jpg")
-            cv2.imwrite(img_path, img) # Save the original color image
-            images_captured += 1
-            current_smile_streak = 0 # Reset streak after capturing an image
-            alert_triggered = True
-            message = f"Perfect smile captured! ({images_captured}/{total_images})"
-        
-        
-        return jsonify({
-            'images_captured': images_captured,
-            'smile_detected': smile_detected_in_frame, # Send actual detection status of current frame
-            'alert': alert_triggered,
-            'message': message,
-            'smile_streak': current_smile_streak,
-            'required_streak': consecutive_smile_frames
-        })
+        if expression == "smile":
+            # Resize image for faster processing (optional, but recommended for live feed)
+            # img_height, img_width = img.shape[:2]
+            # scale_percent = 70 # percent of original size
+            # width = int(img_width * scale_percent / 100)
+            # height = int(img_height * scale_percent / 100)
+            # dim = (width, height)
+            # img = cv2.resize(img, dim, interpolation = cv2.INTER_AREA)
 
-    else:
-        try:
-            emotion_detector = FER(mtcnn=True)
-            dominant_emotion, score = emotion_detector.top_emotion(img)
-        
-            if dominant_emotion == expression:
-                if not os.path.exists(folder_path):
+
+            grayImg = cv2.cvtColor(img, cv2.COLOR_BGR2GRAY)
+            # Equalize histogram for better contrast, especially in varying lighting
+            grayImg = cv2.equalizeHist(grayImg)
+
+            faces = faceCascade.detectMultiScale(
+                grayImg,
+                scaleFactor=1.1, # Keep this reasonable for faces
+                minNeighbors=5,  # Reduced from 6, more lenient face detection
+                minSize=(60, 60), # Minimum size for face detection
+                flags=cv2.CASCADE_SCALE_IMAGE
+            )
+
+            smile_detected_in_frame = False # Flag for current frame
+            message = "Looking for faces..."
+
+            if len(faces) == 0:
+                message = "No face detected."
+                current_smile_streak = 0 # Reset streak if face is lost
+            else:
+                message = "Face detected, looking for smile..."
+                for (x, y, w, h) in faces:
+                    # Draw rectangle around face (for debugging, can be removed)
+                    # cv2.rectangle(img, (x, y), (x+w, y+h), (255, 0, 0), 2)
+
+                    # Define ROI for mouth/smile within the face
+                    # Typically, smiles are in the lower half of the face
+                    roi_gray = grayImg[y + h//2 : y + h, x : x + w] # Lower half of the face
+                    # roi_color = img[y + h//2 : y + h, x : x + w] # If you need color ROI
+
+                    if roi_gray is None or roi_gray.size == 0 or len(roi_gray.shape) != 2:
+                        continue # Skip if ROI is invalid
+
+                    try:
+                        smiles = smileCascade.detectMultiScale(
+                            roi_gray,
+                            scaleFactor=1.2, # Reduced from 1.8, more sensitive to smaller smiles
+                            minNeighbors=8,  # Reduced from 22, more lenient smile detection
+                            minSize=(30, 30), # Increased minSize slightly, but still reasonable
+                            flags=cv2.CASCADE_SCALE_IMAGE
+                        )
+                    except Exception as e:
+                        # Log error but don't stop process
+                        print(f"Error in smile detection: {e}")
+                        continue
+
+                    for (sx, sy, sw, sh) in smiles:
+                        # Draw rectangle around smile (for debugging, can be removed)
+                        # cv2.rectangle(roi_color, (sx, sy), (sx+sw, sy+sh), (0, 255, 0), 2)
+
+                        # Adjusted smile metrics for better accuracy
+                        smile_area_ratio = (sw * sh) / (w * h) # Ratio of smile area to face area
+                        aspect_ratio = sw / sh if sh != 0 else 0
+
+                        # Fine-tuned thresholds based on common smile characteristics
+                        # A smile usually has a wider aspect ratio (horizontal)
+                        # and occupies a certain proportion of the face area.
+                        if aspect_ratio > 1.0 and smile_area_ratio > 0.03: # Example: aspect > 1.0 (wider than tall) and area > 3% of face
+                            smile_detected_in_frame = True
+                            break # Found a smile in this face, no need to check others
+
+                    if smile_detected_in_frame:
+                        break # Found a smile in one of the faces, no need to check other faces
+
+            if smile_detected_in_frame:
+                current_smile_streak += 1
+                message = f"Smile detected! ({current_smile_streak}/{consecutive_smile_frames})"
+            else:
+                current_smile_streak = 0 # Reset streak if no smile is detected in current frame
+                if len(faces) > 0:
+                    message = "Face detected, please smile!"
+                # Message for "No face detected" is handled above.
+
+            alert_triggered = False
+            # Save image if enough smile frames
+            if current_smile_streak >= consecutive_smile_frames:
+                # Before saving, you might want to convert img back to PNG if you prefer lossless
+                # or reduce JPEG quality to save space if needed.
+                # For simplicity, saving as JPEG with default quality.
+                if not os.path.exists(folder_path): # Just a double check
                     os.makedirs(folder_path, exist_ok=True)
                 img_path = os.path.join(folder_path, f"image_{images_captured+1}.jpg")
-                cv2.imwrite(img_path, img)
+                cv2.imwrite(img_path, img) # Save the original color image
                 images_captured += 1
-                message = f"{expression.capitalize()} detected and captured! ({images_captured}/{total_images})"
-                return jsonify({
-                    'images_captured': images_captured,
-                    'smile_detected': True,
-                    'alert': True,
-                    'message': message,
-                    'smile_streak': 0,
-                    'required_streak': consecutive_smile_frames
-                })
-            else:
+                current_smile_streak = 0 # Reset streak after capturing an image
+                alert_triggered = True
+                message = f"Perfect smile captured! ({images_captured}/{total_images})"
+
+
+            return jsonify({
+                'images_captured': images_captured,
+                'smile_detected': smile_detected_in_frame, # Send actual detection status of current frame
+                'alert': alert_triggered,
+                'message': message,
+                'smile_streak': current_smile_streak,
+                'required_streak': consecutive_smile_frames
+            })
+        
+        else:
+            try:
+                emotion_detector = FER(mtcnn=True)
+                dominant_emotion, score = emotion_detector.top_emotion(img)
+
+                if dominant_emotion == expression:
+                    if not os.path.exists(folder_path):
+                        os.makedirs(folder_path, exist_ok=True)
+                    img_path = os.path.join(folder_path, f"image_{images_captured+1}.jpg")
+                    cv2.imwrite(img_path, img)
+                    images_captured += 1
+                    message = f"{expression.capitalize()} detected and captured! ({images_captured}/{total_images})"
+                    return jsonify({
+                        'images_captured': images_captured,
+                        'smile_detected': True,
+                        'alert': True,
+                        'message': message,
+                        'smile_streak': 0,
+                        'required_streak': consecutive_smile_frames
+                    })
+                else:
+                    return jsonify({
+                        'images_captured': images_captured,
+                        'smile_detected': False,
+                        'alert': False,
+                        'message': f"{expression.capitalize()} not detected. Try again!",
+                        'smile_streak': 0,
+                        'required_streak': consecutive_smile_frames
+                    })
+
+            except Exception as e:
+                print(f"Error in FER analysis: {e}")
                 return jsonify({
                     'images_captured': images_captured,
                     'smile_detected': False,
                     'alert': False,
-                    'message': f"{expression.capitalize()} not detected. Try again!",
+                    'message': 'Error during expression detection.',
                     'smile_streak': 0,
                     'required_streak': consecutive_smile_frames
                 })
-        
-        except Exception as e:
-            print(f"Error in FER analysis: {e}")
-                return jsonify({
-                'images_captured': images_captured,
-                'smile_detected': False,
-                'alert': False,
-                'message': 'Error during expression detection.',
-                'smile_streak': 0,
-                'required_streak': consecutive_smile_frames
-            })
         
         
         
